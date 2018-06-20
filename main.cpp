@@ -92,7 +92,6 @@ NAN_METHOD(VmOne::Run) {
     VmOne *vmOne = ObjectWrap::Unwrap<VmOne>(info.This());
     Local<Context> localContext = Nan::New(vmOne->context);
     Local<Function> handler = Nan::New(vmOne->handler);
-    Local<Value> exception;
 
     {
       Context::Scope scope(localContext);
@@ -102,7 +101,15 @@ NAN_METHOD(VmOne::Run) {
         Local<Value> argv[] = {
           JS_STR("compilestart"),
         };
+        printf(">compilestart\n"); fflush(stdout);
         handler->Call(Nan::Null(), sizeof(argv)/sizeof(argv[0]), argv);
+        printf(".compilestart\n"); fflush(stdout);
+      }
+
+      if (tryCatch.HasCaught()) {
+        printf("tktk1\n"); fflush(stdout);
+        tryCatch.ReThrow();
+        return;
       }
 
       ScriptOrigin scriptOrigin(
@@ -110,30 +117,56 @@ NAN_METHOD(VmOne::Run) {
         lineOffset,
         colOffset
       );
+
+      if (tryCatch.HasCaught()) {
+        printf("tktk2\n"); fflush(stdout);
+        tryCatch.ReThrow();
+        return;
+      }
+      printf(">Script compile\n"); fflush(stdout);
       MaybeLocal<Script> scriptMaybe = Script::Compile(localContext, src, &scriptOrigin);
+      printf(".Script compile\n"); fflush(stdout);
+
+      if (tryCatch.HasCaught()) {
+        printf("tktk3\n"); fflush(stdout);
+        tryCatch.ReThrow();
+        return;
+      }
 
       {
         Local<Value> argv[] = {
           JS_STR("compileend"),
         };
+        printf(">compileend\n"); fflush(stdout);
         handler->Call(Nan::Null(), sizeof(argv)/sizeof(argv[0]), argv);
+        printf(".compileend\n"); fflush(stdout);
       }
 
-      if (!scriptMaybe.IsEmpty()) {
-        Local<Script> script = scriptMaybe.ToLocalChecked();
-        MaybeLocal<Value> result = script->Run(localContext);
-
-        if (!tryCatch.HasCaught()) {
-          info.GetReturnValue().Set(result.ToLocalChecked());
-        } else {
-          exception = tryCatch.Exception();
-        }
-      } else {
-        exception = tryCatch.Exception();
+      if (tryCatch.HasCaught()) {
+        printf("tktk4\n"); fflush(stdout);
+        tryCatch.ReThrow();
+        return;
       }
-    }
-    if (!exception.IsEmpty()) {
-      Nan::ThrowError(exception);
+
+
+      if (scriptMaybe.IsEmpty()) {
+        printf("tktk6\n"); fflush(stdout);
+        Nan::ThrowError("script compilation failed");
+      }
+
+      Local<Script> script = scriptMaybe.ToLocalChecked();
+        printf(">script->Run\n"); fflush(stdout);
+      MaybeLocal<Value> result = script->Run(localContext);
+        printf(".script->Run\n"); fflush(stdout);
+
+      if (tryCatch.HasCaught()) {
+        printf("tktk5\n"); fflush(stdout);
+        tryCatch.ReThrow();
+        return;
+      }
+
+      printf(".done\n"); fflush(stdout);
+      info.GetReturnValue().Set(result.ToLocalChecked());
     }
   } else {
     Nan::ThrowError("invalid arguments");
